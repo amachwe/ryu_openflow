@@ -6,6 +6,8 @@ import binascii
 from collections import Counter
 from matplotlib import pyplot as plt
 
+from packet_processor import Ethernet, IPv4
+
 MONGO_HOST = "192.168.0.19"
 MONGO_PORT = 27017
 
@@ -18,19 +20,28 @@ counter = Counter()
 lst = []
 for doc in collection.find():
     data = binascii.hexlify(doc["packet"]).decode('latin-1')
-    src_mac = data[0:12]
-    dst_mac = data[12:24]
-    ether_type = data[24:28]
-    payload = data[28:]
-    print(f"Src: {src_mac}\nDst: {dst_mac}\nEther Type: {ether_type}\nData: {len(payload)}")
-    print(payload[0], payload[1], payload[2:4], payload[4:8], payload[8: 12], payload[16:18],payload[18:20])
-    src_ip = payload[24:32]
-    src_ip = [int(src_ip[0:2],16), int(src_ip[2:4],16), int(src_ip[4:6],16), int(src_ip[6:8],16)]
-    print(src_ip)
 
-    dst_ip = payload[32:40]
-    dst_ip = [int(dst_ip[0:2],16), int(dst_ip[2:4],16), int(dst_ip[4:6],16), int(dst_ip[6:8],16)]
-    print(dst_ip)
+    eth = Ethernet.build(data)
+
+    payload = eth.payload
+    #print(eth)
+
+    ipv4 = IPv4.build(payload)
+    if ipv4.protocol == 4:
+        inner=IPv4.build(ipv4.payload)
+        print(ipv4)
+        print(inner)
+        print("\n------------")
+    lst.append(ipv4.protocol)
+
+    # print(payload[0], payload[1], payload[2:4], payload[4:8], payload[8: 12], payload[16:18],payload[18:20])
+    # src_ip = payload[24:32]
+    # src_ip = [int(src_ip[0:2],16), int(src_ip[2:4],16), int(src_ip[4:6],16), int(src_ip[6:8],16)]
+    # print(src_ip)
+    #
+    # dst_ip = payload[32:40]
+    # dst_ip = [int(dst_ip[0:2],16), int(dst_ip[2:4],16), int(dst_ip[4:6],16), int(dst_ip[6:8],16)]
+    # print(dst_ip)
     #lst.append(len(payload))
     #print(data[0:12].decode('latin-1'), data[12:24].decode('latin-1'), data[24:28].decode('latin-1'))
     # mac = int(data[1:6], base=2)
@@ -40,10 +51,10 @@ for doc in collection.find():
     # print(bin(int(binascii.hexlify(doc["packet"]), base=16))[2])
 
     count+=1
-    print("\n\nNexT:")
+    #print("\n\nNexT:")
 
 print(count)
 print(Counter(lst))
 
-plt.hist(lst,bins=20)
+plt.hist(lst,bins=200)
 plt.show()
