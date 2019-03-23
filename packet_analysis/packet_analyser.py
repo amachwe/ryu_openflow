@@ -6,7 +6,7 @@ import binascii
 from collections import Counter
 from matplotlib import pyplot as plt
 
-from packet_processor import Ethernet, IPv4
+from packet_processor import Ethernet, IPv4, PacketProcessor
 
 MONGO_HOST = "192.168.0.19"
 MONGO_PORT = 27017
@@ -24,11 +24,13 @@ start_time = time.time()
 for doc in collection.find():
     data = binascii.hexlify(doc["packet"]).decode('latin-1')
 
-    l2 = Ethernet.build(data)
+    results = PacketProcessor.build(data)
 
+    l3_pack = results.get("LAYER3")
+    if l3_pack:
 
-    l3 = Ethernet.get_next_processor(l2)
-
+        if l3_pack.get('Geneve'):
+            print(l3_pack.get('Geneve'))
 
     count+=1
 
