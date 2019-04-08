@@ -1,55 +1,80 @@
 # 1 HEX = 4 BITS
-import logging
 
-class Ethernet():
-    # Ethernet Header:
-    # DST MAC 6 bytes, SRC MAC 6 bytes, TYPE 2 bytes, PAYLOAD 46-1500 bytes
+from packet_processor_layer4 import UDP, TCP, ICMP, IGMP
+
+class IPv6():
+
     @staticmethod
     def build(hex_array):
-        src_mac = hex_array[0:12]
-        dst_mac = hex_array[12:24]
-        ether_type = hex_array[24:28]
-        payload = hex_array[28:]
+        ipv6 = IPv6()
 
-        return Ethernet(dst_mac, src_mac, ether_type, payload)
+        ipv6.version = hex_array[0]
+        ipv6.traffic_class = bin(int(hex_array[1:3], 16))[2:].zfill(8)
+        ipv6.diff_service = ipv6.traffic_class[0:6]
+        ipv6.ecn = ipv6.traffic_class[6:]
+        ipv6.flow_label = int(hex_array[3:8], 16)
+        ipv6.payload_length = int(hex_array[8:12], 16)
+        ipv6.next_header = int(hex_array[12:14], 16)
+        ipv6.hop_limit = int(hex_array[14:16], 16)
+        ipv6.source_address = hex_array[16:48]
+        ipv6.destination_address = hex_array[48:80]
+        ipv6.payload = hex_array[80:]
 
-    @staticmethod
-    def format_mac_address(mac):
-        return f"{mac[0:2]}:{mac[2:4]}:{mac[4:6]}:{mac[6:8]}:{mac[8:10]}:{mac[10:12]}"
+        return ipv6
+
+    def __init__(self):
+        self.version = 0
+        self.traffic_class = 0
+        self.ecn = 0
+        self.diff_service = 0
+        self.flow_label = 0
+        self.payload_length = 0
+        self.next_header = 0
+        self.hop_limit = 0
+        self.source_address = 0
+        self.destination_address = 0
+        self.payload = ""
 
     @staticmethod
     def get_next_processor(packet):
 
-        if packet.ether_type == "0800":
-            return IPv4
-        elif packet.ether_type == "0806":
-            return Arp
-        elif packet.ether_type == "86dd":
-            return IPv6
-        elif packet.ether_type == "0006":
-            return Geneve
+        if packet.next_header == 17:
+            return UDP
+        elif packet.next_header == 6:
+            return TCP
+        elif packet.next_header == 2:
+            return IGMP
+        elif packet.next_header == 58:
+            pass #IPv6 ICMP Placeholder
+        elif packet.next_header == 0:
+            pass #IPv6 Hop to Hop Option Placeholder
+        elif packet.next_header == 1:
+            return ICMP
         else:
-            raise Exception(f"Unknown Ether Type: {packet.ether_type}")
-
-    def __init__(self, dst_mac, src_mac, ether_type, payload):
-        self.dst_mac = dst_mac
-        self.src_mac = src_mac
-        self.ether_type = ether_type
-        self.payload = payload
+            raise Exception(f"Unknown Packet Type: {packet.next_header}")
 
     def data(self):
-
         return {
-            "structure": "Ethernet",
-            "src_mac": Ethernet.format_mac_address(self.src_mac),
-            "dst_mac": Ethernet.format_mac_address(self.dst_mac),
-            "ether_type": self.ether_type,
-            "payload": self.payload
+            "structure": "IPv6",
+            "version": self.version,
+            "traffic_class": self.traffic_class,
+            "diff_service": self.diff_service,
+            "ecn": self.ecn,
+            "flow_label": self.flow_label,
+            "payload_length": self.payload_length,
+            "next_header": self.next_header,
+            "hop_limit": self.hop_limit,
+            "source_address": self.source_address,
+            "destination_address": self.destination_address
         }
 
     def __str__(self):
 
-        return f"Source: {Ethernet.format_mac_address(self.src_mac)}\tDest.: {Ethernet.format_mac_address(self.dst_mac)}\tEther Type: {self.ether_type}\tData Length: {len(self.payload)}\n"
+        return f"Version: {self.version}\tTraffic Class: {self.traffic_class}\tDiff Service: {self.diff_service}\tECN: {self.ecn}\n" \
+            f"Flow Label: {self.flow_label}\n" \
+            f"Payload Length: {self.payload_length}\tNext Header: {self.next_header}\tHop Limit: {self.hop_limit}\n" \
+            f"Source Address: {self.source_address}\n" \
+            f"Dest. Address: {self.destination_address}\n"
 
 class Arp():
 
@@ -97,6 +122,10 @@ class Arp():
             "target_protocol_address": self.target_proto_add
         }
 
+    @staticmethod
+    def get_next_processor(packet):
+        return None
+
     def __str__(self):
 
         return f"Hardware Type: {self.hardware_type}\tProtocol Type: {self.protocol_type}\n" \
@@ -104,63 +133,6 @@ class Arp():
             f"Operation: {self.operation}\n" \
             f"Hardware Address: {self.sender_hw_add} to {self.target_hw_add}\n" \
             f"Protocol Address: {self.sender_proto_add} to {self.target_proto_add}\n"
-
-class IPv6():
-
-    @staticmethod
-    def build(hex_array):
-        ipv6 = IPv6()
-
-        ipv6.version = hex_array[0]
-        ipv6.traffic_class = bin(int(hex_array[1:3], 16))[2:].zfill(8)
-        ipv6.diff_service = ipv6.traffic_class[0:6]
-        ipv6.ecn = ipv6.traffic_class[6:]
-        ipv6.flow_label = int(hex_array[3:8], 16)
-        ipv6.payload_length = int(hex_array[8:12], 16)
-        ipv6.next_header = int(hex_array[12:14], 16)
-        ipv6.hop_limit = int(hex_array[14:16], 16)
-        ipv6.source_address = hex_array[16:48]
-        ipv6.destination_address = hex_array[48:80]
-        ipv6.payload = hex_array[80:]
-
-        return ipv6
-
-    def __init__(self):
-        self.version = 0
-        self.traffic_class = 0
-        self.ecn = 0
-        self.diff_service = 0
-        self.flow_label = 0
-        self.payload_length = 0
-        self.next_header = 0
-        self.hop_limit = 0
-        self.source_address = 0
-        self.destination_address = 0
-        self.payload = ""
-
-    def data(self):
-        return {
-            "structure": "IPv6",
-            "version": self.version,
-            "traffic_class": self.traffic_class,
-            "diff_service": self.diff_service,
-            "ecn": self.ecn,
-            "flow_label": self.flow_label,
-            "payload_length": self.payload_length,
-            "next_header": self.next_header,
-            "hop_limit": self.hop_limit,
-            "source_address": self.source_address,
-            "destination_address": self.destination_address
-        }
-
-    def __str__(self):
-
-        return f"Version: {self.version}\tTraffic Class: {self.traffic_class}\tDiff Service: {self.diff_service}\tECN: {self.ecn}\n" \
-            f"Flow Label: {self.flow_label}\n" \
-            f"Payload Length: {self.payload_length}\tNext Header: {self.next_header}\tHop Limit: {self.hop_limit}\n" \
-            f"Source Address: {self.source_address}\n" \
-            f"Dest. Address: {self.destination_address}\n"
-
 
 class Geneve():
 
@@ -194,6 +166,13 @@ class Geneve():
         self.variable_len_opts = 0
         self.payload = 0
 
+    @staticmethod
+    def get_next_processor(packet):
+
+        if packet:
+            pass
+        else:
+            raise Exception(f"Unknown Packet Type: {packet}")
 
     def data(self):
         return {
@@ -277,6 +256,20 @@ class IPv4():
         self.ecn = None
         self.total_length = 0
 
+    @staticmethod
+    def get_next_processor(packet):
+
+        if packet.protocol == 17:
+            return UDP
+        elif packet.protocol == 6:
+            return TCP
+        elif packet.protocol == 2:
+            return IGMP
+        elif packet.protocol == 1:
+            return ICMP
+        else:
+            raise Exception(f"Unknown Packet Type: {packet.protocol}")
+
     def data(self):
         return {
             "structure": "IPv4",
@@ -302,41 +295,6 @@ class IPv4():
             f"\nIdentification: {self.identification}, Flags: {self.flags}, Fragment Offset: {self.fragment_offset}"\
             f"\nTTL: {self.ttl}, Protocol: {self.protocol}, Header Checksum: {self.header_checksum}" \
             f"\nSrc. IP: {self.src_ip}\nDst. IP: {self.dst_ip}\n"
-
-
-class PacketProcessor():
-
-    l2_processors = [Ethernet]
-
-    @staticmethod
-    def build(hex_array):
-        results = {}
-        for l2_proc in PacketProcessor.l2_processors:
-            try:
-                result_l2 = l2_proc.build(hex_array)
-
-                if result_l2:
-                    try:
-                        results["LAYER2"] = {
-                            l2_proc.__name__: result_l2
-                        }
-                        l3_proc = l2_proc.get_next_processor(result_l2)
-
-                        result_l3 = l3_proc.build(result_l2.payload)
-
-                        if result_l3:
-
-                            results["LAYER3"] = {
-                                l3_proc.__name__: result_l3
-                            }
-
-                    except:
-                        logging.exception("Error process Layer 3")
-
-            except:
-                logging.exception("Error process Layer 2")
-
-        return results
 
 def hex_to_ip(hex_array):
     return [int(hex_array[0:2], 16), int(hex_array[2:4], 16), int(hex_array[4:6], 16), int(hex_array[6:8], 16)]

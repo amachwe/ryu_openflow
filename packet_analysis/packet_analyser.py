@@ -3,10 +3,12 @@ from pymongo import MongoClient
 import socket
 import struct
 import binascii
+import multiprocessing
 from collections import Counter
 from matplotlib import pyplot as plt
 
-from packet_processor import Ethernet, IPv4, PacketProcessor
+from packet_processor_layer2 import Ethernet, PacketProcessor
+
 
 MONGO_HOST = "192.168.0.19"
 MONGO_PORT = 27017
@@ -19,24 +21,51 @@ count = 0
 counter = Counter()
 lst = []
 
-import time
-start_time = time.time()
-for doc in collection.find():
-    data = binascii.hexlify(doc["packet"]).decode('latin-1')
+def update_doc(doc):
+    global count
+    if doc.get("layers"):
 
-    results = PacketProcessor.build(data)
-
-    l3_pack = results.get("LAYER3")
-    if l3_pack:
-
-        if l3_pack.get('Geneve'):
-            print(l3_pack.get('Geneve'))
+        return
 
     count+=1
+    data = binascii.hexlify(doc["packet"]).decode('latin-1')
+    id = doc["_id"]
+    try:
+        results, layers = PacketProcessor.build(data)
+        if results:
+            collection.update_one(
+                {
+                    "_id": id
+                },
+                {
+                    "$set": {
+                        "layers": layers,
+                        "extracted": results
+                    }
+                },
+                True
+            )
 
-print(time.time()-start_time)
-print(count)
-print(Counter(lst))
 
-plt.hist(lst,bins=200)
-plt.show()
+    except Exception as e:
+        print(e)
+
+if __name__ == '__main__':
+    print("Starting... ")
+    import time
+    start_time = time.time()
+
+
+    with multiprocessing.Pool(4) as pool:
+
+        list(pool.imap(update_doc, collection.find()))
+
+    print("------ waiting -------S")
+
+
+    print(time.time()-start_time)
+    print(count)
+    print(Counter(lst))
+
+    plt.hist(lst,bins=200)
+    plt.show()
