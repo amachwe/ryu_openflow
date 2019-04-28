@@ -11,16 +11,27 @@ switch_db = {
 
 }
 
-
 INTERNET_PORT = {
-    123917682138647: 1
+    63466001429: 1
 }
 SHADOW_PORT = {
-    123917682138647: 2
+    63466001429: 2
 }
 INTERNAL_PORT = {
-    123917682138647: 3
+    63466001429: 3
 }
+
+
+#Zodiac FX
+# INTERNET_PORT = {
+#     123917682138647: 1
+# }
+# SHADOW_PORT = {
+#     123917682138647: 2
+# }
+# INTERNAL_PORT = {
+#     123917682138647: 3
+# }
 
 
 fh = open('protocol.json', 'w')
@@ -30,7 +41,7 @@ class FlowInstaller(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
 
         super(FlowInstaller, self).__init__(*args, **kwargs)
-        print(" active ")
+        print(" \nactive ")
 
     def packet_processor(self, packet):
         packet_data = {}
@@ -95,11 +106,13 @@ class FlowInstaller(app_manager.RyuApp):
         print("Switch Address: {}    Enter: {}".format(ev.dp.address, ev.enter))
 
         if ev.enter and not switch_db.get(ev.dp.address):
-
+            print("DP Id: ",ev.dp.id)
+            print("Ports: ","\n".join([repr(p) for p in ev.ports]))
             switch_db[ev.dp.address] = {
                 "dp": ev.dp,
                 "ports": ev.ports
             }
+
             sw_internet_port = None
             sw_shadow_port = None
             sw_internal_port = None
