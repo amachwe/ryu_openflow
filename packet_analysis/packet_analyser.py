@@ -10,28 +10,39 @@ from matplotlib import pyplot as plt
 from packet_processor_layer2 import Ethernet, PacketProcessor
 
 
-MONGO_HOST = "192.168.0.19"
+MONGO_HOST = "localhost" #"192.168.0.19"
 MONGO_PORT = 27017
+
+HEX_MTU = 1522*4
 
 mongo_client = MongoClient(MONGO_HOST, MONGO_PORT)
 database = mongo_client.Packet_Snoop
 collection = database.collection.Raw_Packet
 
-count = 0
-counter = Counter()
-lst = []
+
+
+reset = True
+print(f"Reset: {reset}")
 
 def update_doc(doc):
-    global count
-    if doc.get("layers"):
 
+    if not reset and doc.get("layers"):
         return
 
-    count+=1
+
     data = binascii.hexlify(doc["packet"]).decode('latin-1')
     id = doc["_id"]
     try:
         results, layers = PacketProcessor.build(data)
+        # _x = []
+        _y = '_'.join([x for x in layers])
+        len_x = len(data)
+
+        # for i in range(0, len_x):
+        #     _x.append(int(data[i], 16) / 15)
+        #
+        # for i in range(len_x * 4, HEX_MTU):
+        #     _x.append(-1.0)
         if results:
             collection.update_one(
                 {
@@ -40,7 +51,10 @@ def update_doc(doc):
                 {
                     "$set": {
                         "layers": layers,
-                        "extracted": results
+                        "extracted": results,
+  #                      "X": _x,
+                        "Y": _y,
+                        "Length": len_x
                     }
                 },
                 True
@@ -56,16 +70,8 @@ if __name__ == '__main__':
     start_time = time.time()
 
 
-    with multiprocessing.Pool(4) as pool:
+    with multiprocessing.Pool(5) as pool:
 
         list(pool.imap(update_doc, collection.find()))
 
-    print("------ waiting -------S")
-
-
     print(time.time()-start_time)
-    print(count)
-    print(Counter(lst))
-
-    plt.hist(lst,bins=200)
-    plt.show()
